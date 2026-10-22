@@ -21,10 +21,6 @@
 
   <!-- ═══════════ Top bar ═══════════ -->
   <header class="topbar">
-    <button class="icon-btn only-mobile" id="library-toggle" type="button" aria-label="Open workflow library">
-      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
-    </button>
-
     <a class="brand" href="#" aria-label="NetSuite Workflow Studio home">
       <span class="brand__mark">
         <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
@@ -35,7 +31,7 @@
       </span>
       <span class="brand__text">
         <strong>Workflow Studio</strong>
-        <small>for NetSuite SuiteFlow</small>
+        <small>by Balakrishna Undela</small>
       </span>
     </a>
 
@@ -61,31 +57,21 @@
     </div>
   </header>
 
-  <div class="shell">
+  <div class="page">
     <!-- ═══════════ Library ═══════════ -->
-    <aside class="library panel" aria-label="Workflow library">
-      <div class="library__head">
-        <h2>Library</h2>
+    <section class="switcher" aria-label="Workflow library">
+      <div class="switcher__head">
+        <h2>Workflow library</h2>
         <label class="search">
           <svg viewBox="0 0 24 24" width="15" height="15"><path d="M10 2a8 8 0 016.3 12.9l5.4 5.4-1.4 1.4-5.4-5.4A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z"/></svg>
           <input id="library-search" type="search" placeholder="Search workflows…" autocomplete="off" aria-label="Search workflows">
           <kbd>/</kbd>
         </label>
       </div>
-      <div class="library__list" id="library-list"></div>
+      <div class="switcher__list" id="library-list"></div>
+    </section>
 
-      <div class="profile">
-        <div class="profile__avatar">BU</div>
-        <div class="profile__info">
-          <strong>Balakrishna Undela</strong>
-          <span>NetSuite Developer · SuiteScript & SuiteFlow</span>
-        </div>
-        <a class="icon-btn icon-btn--sm" href="https://github.com/balakrishna-dev" target="_blank" rel="noopener" aria-label="GitHub profile">
-          <svg viewBox="0 0 24 24" width="15" height="15"><path d="M14 3h7v7h-2V6.4l-9.3 9.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H5v12h12v-6h2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
-        </a>
-      </div>
-    </aside>
-
+    <div class="workspace">
     <!-- ═══════════ Stage ═══════════ -->
     <main class="stage">
       <section class="stage__head">
@@ -120,6 +106,7 @@
           <button type="button" class="tool is-on" id="flow-toggle" aria-pressed="true" aria-label="Toggle flow animation"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M2 12c3-6 7-6 10 0s7 6 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
 
+        <p class="pan-hint" aria-hidden="true">Drag to pan · tap a state for details</p>
         <ul class="legend" aria-label="Legend">
           <li style="--c:#10b981">Trigger</li>
           <li style="--c:#8b5cf6">State</li>
@@ -170,12 +157,27 @@
           <button type="button" class="tabs__btn" role="tab" data-tab="script">SuiteScript</button>
           <button type="button" class="tabs__btn" role="tab" data-tab="json">JSON</button>
         </div>
-        <button type="button" class="icon-btn icon-btn--sm only-mobile" id="inspector-close" aria-label="Close inspector">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
-        </button>
       </div>
       <div class="inspector__body" id="inspector-body"></div>
     </aside>
+    </div>
+
+    <!-- ═══════════ About ═══════════ -->
+    <section class="about panel" aria-label="About the author">
+      <div class="about__avatar">BU</div>
+      <div class="about__info">
+        <span class="chip">About the author</span>
+        <h2>Balakrishna Undela</h2>
+        <p>NetSuite Developer focused on SuiteScript 2.1, SuiteFlow workflow automation, SuiteQL and integrations. I design approval processes, finance controls and automation across Order to Cash, Procure to Pay and Record to Report.</p>
+        <ul class="skills">
+          <li>SuiteScript 2.1</li><li>SuiteFlow</li><li>SuiteQL</li><li>Map/Reduce</li><li>User Event</li><li>RESTlets</li><li>N/https integrations</li><li>SOX controls</li>
+        </ul>
+      </div>
+      <a class="btn btn--primary about__cta" href="https://github.com/balakrishna-dev" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 .5a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .5z"/></svg>
+        <span>GitHub profile</span>
+      </a>
+    </section>
   </div>
 
   <footer class="foot">
@@ -186,7 +188,6 @@
     <span>NetSuite is a trademark of Oracle. Independent portfolio project.</span>
   </footer>
 
-  <div class="scrim" id="scrim"></div>
   <div class="toast" id="toast" role="status"></div>
 
   <script src="assets/js/workflows.js"></script>

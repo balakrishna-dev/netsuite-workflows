@@ -13,9 +13,9 @@
   const TYPES = window.NS_NODE_TYPES;
 
   /* ── Layout constants ─────────────────────────────────────── */
-  const COL = 246;
+  const COL = 236;
   const ROW = 150;
-  const NODE_W = 200;
+  const NODE_W = 192;
   const NODE_H = 80;
   const PAD = 90;
 
@@ -172,7 +172,6 @@
     updatePrediction();
     renderInspector();
     requestAnimationFrame(() => fitView(false));
-    document.body.classList.remove('library-open');
   }
 
   function renderHeader() {
@@ -226,7 +225,7 @@
         '<span class="node__port node__port--in"></span>' +
         '<span class="node__icon">' + icon(t.icon, 18) + '</span>' +
         '<span class="node__body">' +
-          '<span class="node__kind">' + t.label + (n.script || n.type === 'script' ? '<em>SuiteScript</em>' : '') + '</span>' +
+          '<span class="node__kind">' + t.label + '</span>' +
           '<span class="node__title">' + esc(n.label) + '</span>' +
           '<span class="node__sub">' + esc(n.sub) + '</span>' +
         '</span>' +
@@ -289,7 +288,9 @@
         const path = g.querySelector('.edge');
         const len = path.getTotalLength();
         const pt = path.getPointAtLength(len * 0.5);
-        const lbl = h('span', { class: 'edge-label', 'data-i': i, style: 'left:' + pt.x + 'px;top:' + pt.y + 'px' }, esc(e.label));
+        // Short connectors: lift the label above the line so it doesn't cover the ports.
+        const y = len < 115 ? pt.y - 17 : pt.y;
+        const lbl = h('span', { class: 'edge-label', 'data-i': i, style: 'left:' + pt.x + 'px;top:' + y + 'px' }, esc(e.label));
         dom.labels.appendChild(lbl);
       }
     });
@@ -349,7 +350,10 @@
     $$('.edge-group', dom.edges).forEach((g) => g.classList.toggle('is-linked', !!id && (g.dataset.from === id || g.dataset.to === id)));
     if (id && state.tab === 'json') state.tab = 'details';
     renderInspector();
-    if (id) document.body.classList.add('inspector-open');
+    // Inspector sits below the canvas on smaller screens — bring it into view.
+    if (id && matchMedia('(max-width: 1280px)').matches) {
+      $('.inspector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   /* ═════════════════════════════════════════════════════════
@@ -383,9 +387,12 @@
     const b = graphBounds();
     const w = b.maxX - b.minX + 120;
     const hgt = b.maxY - b.minY + 140;
-    const k = Math.min(1.15, Math.max(0.3, Math.min(r.width / w, r.height / hgt)));
+    const fit = Math.min(r.width / w, r.height / hgt);
+    // Never shrink below a readable zoom; on small screens start at the trigger and let the user pan.
+    const minK = r.width < 600 ? 0.62 : 0.55;
+    const k = Math.min(1.1, Math.max(minK, fit));
     state.view.k = k;
-    state.view.x = (r.width - (b.maxX - b.minX) * k) / 2 - b.minX * k;
+    state.view.x = fit < minK ? 28 - b.minX * k : (r.width - (b.maxX - b.minX) * k) / 2 - b.minX * k;
     state.view.y = (r.height - (b.maxY - b.minY) * k) / 2 - b.minY * k;
     applyView(animate);
   }
@@ -807,9 +814,6 @@
     });
 
     $('#theme-toggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
-    $('#library-toggle').addEventListener('click', () => document.body.classList.toggle('library-open'));
-    $('#inspector-close').addEventListener('click', () => document.body.classList.remove('inspector-open'));
-    $('#scrim').addEventListener('click', () => document.body.classList.remove('library-open', 'inspector-open'));
 
     document.addEventListener('keydown', (ev) => {
       if (ev.target.matches('input, textarea')) return;
@@ -819,7 +823,7 @@
       else if (k === 'f') fitView(true);
       else if (k === 't') $('#theme-toggle').click();
       else if (k === '/') { ev.preventDefault(); dom.search.focus(); }
-      else if (k === 'escape') { selectNode(null); document.body.classList.remove('library-open', 'inspector-open'); }
+      else if (k === 'escape') selectNode(null);
       else if (k === '+' || k === '=') zoomAt(1.2);
       else if (k === '-') zoomAt(1 / 1.2);
       else if (/^[1-9]$/.test(k) && WORKFLOWS[Number(k) - 1]) selectWorkflow(WORKFLOWS[Number(k) - 1].id);
