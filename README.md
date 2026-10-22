@@ -82,7 +82,7 @@ cd netsuite-workflows
 npx http-server .        # or just open index.html
 ```
 
-Every push to `main` is published automatically with **GitHub Pages**.
+Every push to `main` deploys the site to **GitHub Pages** automatically (`.github/workflows/pages.yml`).
 
 ## 🏗️ Architecture
 
