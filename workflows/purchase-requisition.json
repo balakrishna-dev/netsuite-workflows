@@ -1,0 +1,255 @@
+{
+  "scriptid": "customworkflow_bu_purchase_requisition",
+  "name": "Purchase Requisition to PO",
+  "category": "Procure to Pay",
+  "recordtype": "Purchase Requisition",
+  "version": "1.8",
+  "summary": "Employee requisitions validated against department budget, routed through the supervisor hierarchy and auto-converted into a Purchase Order.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Requisition Submitted",
+      "description": "Employee raises a requisition from the Employee Center role.",
+      "sla_hours": 0,
+      "trigger": "On Create",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → Pending Approval"
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "type": "decision",
+      "name": "Budget Check",
+      "description": "Compares the requisition against remaining budget for the department, class and period.",
+      "sla_hours": 0.05,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "customscript_bu_wa_budget_check"
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "type": "state",
+      "name": "Finance Review",
+      "description": "FP&A analyst decides whether to reallocate budget or decline.",
+      "sla_hours": 8,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Reallocate"
+        },
+        {
+          "type": "Add Button",
+          "value": "Decline"
+        }
+      ]
+    },
+    {
+      "id": "super",
+      "type": "state",
+      "name": "Supervisor",
+      "description": "Employee's supervisor approves. Approval routing walks the employee hierarchy up to the approval limit.",
+      "sla_hours": 4,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Next Approver → {employee.supervisor}"
+        },
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        }
+      ]
+    },
+    {
+      "id": "limit",
+      "type": "decision",
+      "name": "Within Limit?",
+      "description": "If the amount exceeds the approver's purchase limit, the requisition climbs one level.",
+      "sla_hours": 0.05,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "{total} <= {nextapprover.purchaseorderapprovallimit}"
+        }
+      ]
+    },
+    {
+      "id": "vp",
+      "type": "state",
+      "name": "VP Approval",
+      "description": "Vice President of the department approves high-value spend.",
+      "sla_hours": 12,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Send Email",
+          "value": "VP · Pending approval digest"
+        }
+      ]
+    },
+    {
+      "id": "sourcing",
+      "type": "decision",
+      "name": "Preferred Vendor?",
+      "description": "Checks whether all lines have a preferred vendor; otherwise procurement must source.",
+      "sla_hours": 0.05,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "COUNT(lines without vendor) = 0"
+        }
+      ]
+    },
+    {
+      "id": "rfq",
+      "type": "state",
+      "name": "Procurement RFQ",
+      "description": "Procurement team requests quotes and selects the vendor.",
+      "sla_hours": 24,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Create Record",
+          "value": "Task · Procurement"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Vendor (selected)"
+        }
+      ]
+    },
+    {
+      "id": "po",
+      "type": "script",
+      "name": "Create Purchase Order",
+      "description": "Requisition transformed into one PO per vendor and emailed to the supplier.",
+      "sla_hours": 0.1,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Transform Record",
+          "value": "Requisition → Purchase Order"
+        },
+        {
+          "type": "Send Email",
+          "value": "Vendor · PO PDF"
+        }
+      ]
+    },
+    {
+      "id": "declined",
+      "type": "reject",
+      "name": "Declined",
+      "description": "Requisition rejected with reason.",
+      "sla_hours": 0,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → Rejected"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "PO Issued",
+      "description": "PO issued and committed against budget.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Complete",
+          "value": "Workflow finished"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "budget"
+    },
+    {
+      "from": "budget",
+      "to": "super",
+      "label": "OK",
+      "condition": "(s) => s.budget"
+    },
+    {
+      "from": "budget",
+      "to": "finance",
+      "label": "Over",
+      "condition": "(s) => !s.budget"
+    },
+    {
+      "from": "finance",
+      "to": "super",
+      "label": "Reallocate",
+      "condition": "(s) => s.amount <= 25000"
+    },
+    {
+      "from": "finance",
+      "to": "declined",
+      "label": "Decline",
+      "condition": "(s) => s.amount > 25000"
+    },
+    {
+      "from": "super",
+      "to": "limit"
+    },
+    {
+      "from": "limit",
+      "to": "sourcing",
+      "label": "Yes",
+      "condition": "(s, c) => s.amount <= 25000 || c.visits.vp > 0"
+    },
+    {
+      "from": "limit",
+      "to": "vp",
+      "label": "Escalate",
+      "condition": "(s) => s.amount > 25000"
+    },
+    {
+      "from": "vp",
+      "to": "limit"
+    },
+    {
+      "from": "sourcing",
+      "to": "po",
+      "label": "Yes",
+      "condition": "(s) => s.preferred"
+    },
+    {
+      "from": "sourcing",
+      "to": "rfq",
+      "label": "No",
+      "condition": "(s) => !s.preferred"
+    },
+    {
+      "from": "rfq",
+      "to": "po",
+      "label": "Awarded"
+    },
+    {
+      "from": "po",
+      "to": "end"
+    }
+  ]
+}

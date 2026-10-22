@@ -1,0 +1,233 @@
+{
+  "scriptid": "customworkflow_bu_vendor_bill_3way_match",
+  "name": "Vendor Bill 3-Way Match",
+  "category": "Procure to Pay",
+  "recordtype": "Vendor Bill",
+  "version": "2.4",
+  "summary": "Automated PO ↔ Item Receipt ↔ Vendor Bill matching with tolerance rules, an AP exception queue and scheduled payment release.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Bill Received",
+      "description": "Vendor Bill created from the AP inbox (OCR capture) or transformed from a Purchase Order.",
+      "sla_hours": 0,
+      "trigger": "After Record Submit · Create",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Approval Status → Pending Approval"
+        }
+      ]
+    },
+    {
+      "id": "link",
+      "type": "script",
+      "name": "Link PO & Receipt",
+      "description": "Finds the originating Purchase Order and related Item Receipts, aggregating quantities and rates per line.",
+      "sla_hours": 0.2,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "customscript_bu_wa_three_way_match"
+        }
+      ]
+    },
+    {
+      "id": "receipt",
+      "type": "decision",
+      "name": "Receipt Exists?",
+      "description": "Bills without a matching receipt are held until the warehouse confirms delivery.",
+      "sla_hours": 0.05,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "SUM({receipt.quantity}) >= {quantity}"
+        }
+      ]
+    },
+    {
+      "id": "wait",
+      "type": "state",
+      "name": "Await Receipt",
+      "description": "Bill parked. Scheduled transition re-checks every 6 hours for a new Item Receipt.",
+      "sla_hours": 24,
+      "trigger": "Scheduled · Every 6h",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "Receiving team · Missing receipt"
+        },
+        {
+          "type": "Scheduled Transition",
+          "value": "Re-evaluate match"
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "type": "decision",
+      "name": "Within Tolerance?",
+      "description": "Price & quantity variance validated against the tolerance defined per subsidiary on a custom record.",
+      "sla_hours": 0.05,
+      "trigger": "Condition · Script result",
+      "actions": [
+        {
+          "type": "Script Result",
+          "value": "MATCHED · VARIANCE"
+        }
+      ]
+    },
+    {
+      "id": "exception",
+      "type": "state",
+      "name": "AP Exception Queue",
+      "description": "AP specialist reviews the variance, requests a credit memo from the vendor or adjusts the bill.",
+      "sla_hours": 12,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Accept Variance"
+        },
+        {
+          "type": "Add Button",
+          "value": "Request Credit"
+        },
+        {
+          "type": "Create Record",
+          "value": "Task · AP Specialist"
+        }
+      ]
+    },
+    {
+      "id": "approve",
+      "type": "action",
+      "name": "Auto-Approve",
+      "description": "Matched bills are approved without human touch — the core KPI of the AP automation program.",
+      "sla_hours": 0.05,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Approval Status → Approved"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_touchless → T"
+        }
+      ]
+    },
+    {
+      "id": "schedule",
+      "type": "state",
+      "name": "Payment Scheduled",
+      "description": "Bill is placed in the next Bill Payment batch respecting vendor terms and early-pay discounts.",
+      "sla_hours": 48,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Payment Hold → F"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Due Date (terms-adjusted)"
+        }
+      ]
+    },
+    {
+      "id": "rejected",
+      "type": "reject",
+      "name": "Rejected",
+      "description": "Disputed bill is rejected and the vendor notified through the vendor portal.",
+      "sla_hours": 0.1,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Approval Status → Rejected"
+        },
+        {
+          "type": "Send Email",
+          "value": "Vendor contact"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "Paid",
+      "description": "Payment posted to GL, vendor remittance advice emailed.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Complete",
+          "value": "Workflow finished"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "link"
+    },
+    {
+      "from": "link",
+      "to": "receipt"
+    },
+    {
+      "from": "receipt",
+      "to": "match",
+      "label": "Yes",
+      "condition": "(s, c) => s.received || c.visits.wait > 0"
+    },
+    {
+      "from": "receipt",
+      "to": "wait",
+      "label": "No",
+      "condition": "(s) => !s.received"
+    },
+    {
+      "from": "wait",
+      "to": "receipt",
+      "label": "Re-check"
+    },
+    {
+      "from": "match",
+      "to": "approve",
+      "label": "Match",
+      "condition": "(s, c) => s.variance <= 3 || c.visits.exception > 0"
+    },
+    {
+      "from": "match",
+      "to": "exception",
+      "label": "Variance",
+      "condition": "(s) => s.variance > 3"
+    },
+    {
+      "from": "exception",
+      "to": "match",
+      "label": "Adjusted",
+      "condition": "(s) => s.resolved"
+    },
+    {
+      "from": "exception",
+      "to": "rejected",
+      "label": "Dispute",
+      "condition": "(s) => !s.resolved"
+    },
+    {
+      "from": "approve",
+      "to": "schedule"
+    },
+    {
+      "from": "schedule",
+      "to": "end"
+    }
+  ]
+}

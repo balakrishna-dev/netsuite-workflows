@@ -1,0 +1,207 @@
+{
+  "scriptid": "customworkflow_bu_expense_report_approval",
+  "name": "Expense Report Approval",
+  "category": "Employee",
+  "recordtype": "Expense Report",
+  "version": "2.1",
+  "summary": "Policy-driven expense approvals with receipt enforcement, per-diem checks, supervisor → accounting review and reimbursement via ACH.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Report Submitted",
+      "description": "Employee submits an expense report from the NetSuite mobile app.",
+      "sla_hours": 0,
+      "trigger": "On Create",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → Pending Supervisor Approval"
+        }
+      ]
+    },
+    {
+      "id": "receipts",
+      "type": "decision",
+      "name": "Receipts Check",
+      "description": "Enforces receipt attachment for each line above the policy threshold.",
+      "sla_hours": 0.02,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "COUNT(lines > 75 AND receipt = F) = 0"
+        }
+      ]
+    },
+    {
+      "id": "returned",
+      "type": "state",
+      "name": "Returned to Employee",
+      "description": "Report returned to the employee with the list of lines missing receipts.",
+      "sla_hours": 24,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "Employee · Missing receipts"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Status → In Progress"
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "type": "script",
+      "name": "Policy Engine",
+      "description": "Validates per-diem rates by city, category caps and duplicate detection.",
+      "sla_hours": 0.05,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "Policy rules engine"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_policy_flags"
+        }
+      ]
+    },
+    {
+      "id": "super",
+      "type": "state",
+      "name": "Supervisor",
+      "description": "Supervisor approves; policy flags highlighted on the form via client script.",
+      "sla_hours": 6,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Add Button",
+          "value": "Reject"
+        }
+      ]
+    },
+    {
+      "id": "big",
+      "type": "decision",
+      "name": "Requires Accounting?",
+      "description": "Large or flagged reports get a second review from accounting.",
+      "sla_hours": 0.02,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "{total} > 2500 OR {custbody_bu_policy_flags} IS NOT NULL"
+        }
+      ]
+    },
+    {
+      "id": "acct",
+      "type": "state",
+      "name": "Accounting Review",
+      "description": "Accounting validates GL coding and policy exceptions.",
+      "sla_hours": 12,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Accounting Approval → T"
+        }
+      ]
+    },
+    {
+      "id": "pay",
+      "type": "action",
+      "name": "Reimburse via ACH",
+      "description": "Reimbursement included in the next ACH batch.",
+      "sla_hours": 24,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → Approved (Overridden by Accounting)"
+        },
+        {
+          "type": "Transform Record",
+          "value": "Bill Payment (Employee)"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "Reimbursed",
+      "description": "Employee reimbursed and notified.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "Employee · Paid"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "receipts"
+    },
+    {
+      "from": "receipts",
+      "to": "policy",
+      "label": "Complete",
+      "condition": "(s, c) => s.receipts || c.visits.returned > 0"
+    },
+    {
+      "from": "receipts",
+      "to": "returned",
+      "label": "Missing",
+      "condition": "(s) => !s.receipts"
+    },
+    {
+      "from": "returned",
+      "to": "receipts",
+      "label": "Resubmitted"
+    },
+    {
+      "from": "policy",
+      "to": "super"
+    },
+    {
+      "from": "super",
+      "to": "big"
+    },
+    {
+      "from": "big",
+      "to": "pay",
+      "label": "No",
+      "condition": "(s) => s.amount <= 2500 && s.policy"
+    },
+    {
+      "from": "big",
+      "to": "acct",
+      "label": "Yes",
+      "condition": "(s) => s.amount > 2500 || !s.policy"
+    },
+    {
+      "from": "acct",
+      "to": "pay"
+    },
+    {
+      "from": "pay",
+      "to": "end"
+    }
+  ]
+}

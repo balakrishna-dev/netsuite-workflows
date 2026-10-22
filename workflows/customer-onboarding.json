@@ -1,0 +1,240 @@
+{
+  "scriptid": "customworkflow_bu_customer_onboarding",
+  "name": "Customer Onboarding & KYC",
+  "category": "CRM",
+  "recordtype": "Customer",
+  "version": "1.5",
+  "summary": "Lead conversion to an active customer: KYC verification, tax validation, credit limit assignment and welcome automation.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Lead Converted",
+      "description": "Opportunity closed-won converts the prospect into a customer record.",
+      "sla_hours": 0,
+      "trigger": "After Submit · Stage change",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → CUSTOMER-Onboarding"
+        }
+      ]
+    },
+    {
+      "id": "kyc",
+      "type": "decision",
+      "name": "KYC Verification",
+      "description": "Customer identity and sanctions screening through an external KYC provider via RESTlet / N/https.",
+      "sla_hours": 0.5,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "customscript_bu_wa_kyc"
+        },
+        {
+          "type": "Branch",
+          "value": "VERIFIED · FAILED"
+        }
+      ]
+    },
+    {
+      "id": "docs",
+      "type": "state",
+      "name": "Request Documents",
+      "description": "Customer is asked to upload missing documents through the portal.",
+      "sla_hours": 48,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "Customer · Document request"
+        },
+        {
+          "type": "Scheduled Transition",
+          "value": "Reminder after 48h"
+        }
+      ]
+    },
+    {
+      "id": "tax",
+      "type": "action",
+      "name": "Tax Validation",
+      "description": "Validates tax registration based on region and assigns the correct tax nexus and tax code.",
+      "sla_hours": 0.2,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Tax Item (by nexus)"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "VAT Reg. Number validated"
+        }
+      ]
+    },
+    {
+      "id": "credit",
+      "type": "decision",
+      "name": "Credit Tier",
+      "description": "Assigns the credit limit and payment terms based on the bureau score.",
+      "sla_hours": 0.05,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Branch",
+          "value": "≥ 700 Standard · < 700 Prepay"
+        }
+      ]
+    },
+    {
+      "id": "std",
+      "type": "action",
+      "name": "Standard Terms",
+      "description": "Net 30 terms, $50,000 credit limit.",
+      "sla_hours": 0.05,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Terms → Net 30"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Credit Limit → 50,000"
+        }
+      ]
+    },
+    {
+      "id": "prepay",
+      "type": "action",
+      "name": "Prepayment Terms",
+      "description": "Customer must pay a deposit before first fulfillment.",
+      "sla_hours": 0.05,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Terms → Prepayment"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Credit Hold → ON"
+        }
+      ]
+    },
+    {
+      "id": "welcome",
+      "type": "action",
+      "name": "Welcome Journey",
+      "description": "Grants customer center access and triggers the welcome email campaign.",
+      "sla_hours": 0.1,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "Welcome pack"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Give Access → T"
+        },
+        {
+          "type": "Create Record",
+          "value": "Phone call · CSM intro"
+        }
+      ]
+    },
+    {
+      "id": "fail",
+      "type": "reject",
+      "name": "Onboarding Failed",
+      "description": "Customer set to inactive and compliance alerted.",
+      "sla_hours": 0,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Inactive → T"
+        },
+        {
+          "type": "Send Email",
+          "value": "Compliance team"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "Active Customer",
+      "description": "Customer is active and can place orders.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Status → CUSTOMER-Active"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "kyc"
+    },
+    {
+      "from": "kyc",
+      "to": "tax",
+      "label": "Verified",
+      "condition": "(s, c) => s.kyc || c.visits.docs > 0"
+    },
+    {
+      "from": "kyc",
+      "to": "docs",
+      "label": "Missing",
+      "condition": "(s, c) => !s.kyc && c.visits.docs === 0"
+    },
+    {
+      "from": "docs",
+      "to": "kyc",
+      "label": "Uploaded",
+      "condition": "(s) => s.region !== 'apac'"
+    },
+    {
+      "from": "docs",
+      "to": "fail",
+      "label": "Expired",
+      "condition": "(s) => s.region === 'apac'"
+    },
+    {
+      "from": "tax",
+      "to": "credit"
+    },
+    {
+      "from": "credit",
+      "to": "std",
+      "label": "≥ 700",
+      "condition": "(s) => s.score >= 700"
+    },
+    {
+      "from": "credit",
+      "to": "prepay",
+      "label": "< 700",
+      "condition": "(s) => s.score < 700"
+    },
+    {
+      "from": "std",
+      "to": "welcome"
+    },
+    {
+      "from": "prepay",
+      "to": "welcome"
+    },
+    {
+      "from": "welcome",
+      "to": "end"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetSuite Workflow Studio · Balakrishna Undela</title>
+  <meta name="description" content="Interactive visualizer and simulator for NetSuite SuiteFlow workflows — approvals, 3-way match, onboarding and more. Built by Balakrishna Undela.">
+  <meta name="author" content="Balakrishna Undela">
+  <meta property="og:title" content="NetSuite Workflow Studio">
+  <meta property="og:description" content="Explore, simulate and inspect real-world NetSuite workflows with SuiteScript 2.1 examples.">
+  <meta property="og:image" content="docs/preview.png">
+  <meta name="theme-color" content="#0b0d17">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c5cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 10h5v5H9zM18 17h5v5h-5zM14 12.5h3a2 2 0 012 2V17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <!-- ═══════════ Top bar ═══════════ -->
+  <header class="topbar">
+    <button class="icon-btn only-mobile" id="library-toggle" type="button" aria-label="Open workflow library">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </button>
+
+    <a class="brand" href="#" aria-label="NetSuite Workflow Studio home">
+      <span class="brand__mark">
+        <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+          <defs><linearGradient id="bm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+          <rect width="32" height="32" rx="9" fill="url(#bm)"/>
+          <path d="M9 10h5v5H9zM18 17h5v5h-5zM14 12.5h3a2 2 0 012 2V17" stroke="#fff" stroke-width="2" fill="none" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="brand__text">
+        <strong>Workflow Studio</strong>
+        <small>for NetSuite SuiteFlow</small>
+      </span>
+    </a>
+
+    <div class="topbar__center">
+      <span class="live-dot"></span>
+      <span><b id="total-workflows">0</b> workflows</span>
+      <span class="sep"></span>
+      <span><b id="total-states">0</b> states modelled</span>
+      <span class="sep"></span>
+      <span>SuiteScript 2.1</span>
+    </div>
+
+    <div class="topbar__right">
+      <div class="kbd-hint" aria-hidden="true"><kbd>R</kbd> run <kbd>F</kbd> fit <kbd>/</kbd> search</div>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM11 1h2v3h-2zm0 19h2v3h-2zM3.5 4.9l1.4-1.4 2.1 2.1-1.4 1.4zM17 18.4l1.4-1.4 2.1 2.1-1.4 1.4zM1 11h3v2H1zm19 0h3v2h-3zM3.5 19.1l2.1-2.1 1.4 1.4-2.1 2.1zM17 5.6l2.1-2.1 1.4 1.4-2.1 2.1z"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </button>
+      <a class="btn btn--gh" href="https://github.com/balakrishna-dev/netsuite-workflows" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 .5a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .5z"/></svg>
+        <span>Source</span>
+      </a>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- ═══════════ Library ═══════════ -->
+    <aside class="library panel" aria-label="Workflow library">
+      <div class="library__head">
+        <h2>Library</h2>
+        <label class="search">
+          <svg viewBox="0 0 24 24" width="15" height="15"><path d="M10 2a8 8 0 016.3 12.9l5.4 5.4-1.4 1.4-5.4-5.4A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z"/></svg>
+          <input id="library-search" type="search" placeholder="Search workflows…" autocomplete="off" aria-label="Search workflows">
+          <kbd>/</kbd>
+        </label>
+      </div>
+      <div class="library__list" id="library-list"></div>
+
+      <div class="profile">
+        <div class="profile__avatar">BU</div>
+        <div class="profile__info">
+          <strong>Balakrishna Undela</strong>
+          <span>NetSuite Developer · SuiteScript & SuiteFlow</span>
+        </div>
+        <a class="icon-btn icon-btn--sm" href="https://github.com/balakrishna-dev" target="_blank" rel="noopener" aria-label="GitHub profile">
+          <svg viewBox="0 0 24 24" width="15" height="15"><path d="M14 3h7v7h-2V6.4l-9.3 9.3-1.4-1.4L17.6 5H14V3zM5 5h6v2H5v12h12v-6h2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ═══════════ Stage ═══════════ -->
+    <main class="stage">
+      <section class="stage__head">
+        <div class="stage__title">
+          <div class="crumb" id="wf-crumb"></div>
+          <h1 id="wf-title">Workflow</h1>
+          <p id="wf-summary"></p>
+        </div>
+        <div class="stats" id="wf-stats"></div>
+      </section>
+
+      <section class="canvas panel" id="canvas" aria-label="Workflow diagram">
+        <div class="world" id="world">
+          <svg class="edges" id="edges" aria-hidden="true">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" class="arrow-head"/>
+              </marker>
+            </defs>
+          </svg>
+          <div class="labels" id="labels"></div>
+          <div class="nodes" id="nodes"></div>
+          <div class="token" id="token"><span></span></div>
+        </div>
+
+        <div class="canvas__tools" role="toolbar" aria-label="Canvas controls">
+          <button type="button" class="tool" id="zoom-out" aria-label="Zoom out"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 11h14v2H5z"/></svg></button>
+          <span class="tool__zoom" id="zoom-level">100%</span>
+          <button type="button" class="tool" id="zoom-in" aria-label="Zoom in"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></button>
+          <span class="tool__sep"></span>
+          <button type="button" class="tool" id="zoom-fit" aria-label="Fit to screen"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 3h6v2H5v4H3zm12 0h6v6h-2V5h-4zM3 15h2v4h4v2H3zm16 0h2v6h-6v-2h4z"/></svg></button>
+          <button type="button" class="tool is-on" id="flow-toggle" aria-pressed="true" aria-label="Toggle flow animation"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M2 12c3-6 7-6 10 0s7 6 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </div>
+
+        <ul class="legend" aria-label="Legend">
+          <li style="--c:#10b981">Trigger</li>
+          <li style="--c:#8b5cf6">State</li>
+          <li style="--c:#f59e0b">Decision</li>
+          <li style="--c:#22d3ee">Action</li>
+          <li style="--c:#ec4899">Script</li>
+          <li style="--c:#f43f5e">Rejected</li>
+        </ul>
+      </section>
+
+      <!-- Simulator -->
+      <section class="sim panel" aria-label="Workflow simulator">
+        <div class="sim__controls">
+          <div class="sim__head">
+            <h2>Scenario</h2>
+            <span class="chip chip--soft">What-if</span>
+          </div>
+          <div class="ctrls" id="scenario-controls"></div>
+          <div class="prediction" id="prediction"></div>
+        </div>
+
+        <div class="sim__log">
+          <div class="sim__head">
+            <h2>Execution log</h2>
+            <div class="sim__actions">
+              <div class="speed" role="group" aria-label="Playback speed">
+                <button type="button" data-speed="1" class="is-on">1×</button>
+                <button type="button" data-speed="2">2×</button>
+                <button type="button" data-speed="4">4×</button>
+              </div>
+              <button type="button" class="btn btn--primary" id="run-btn">
+                <svg class="i-play" viewBox="0 0 24 24" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="i-stop" viewBox="0 0 24 24" width="14" height="14"><path d="M6 6h12v12H6z"/></svg>
+                <span>Run</span>
+              </button>
+            </div>
+          </div>
+          <ol class="log" id="log" aria-live="polite"></ol>
+        </div>
+      </section>
+    </main>
+
+    <!-- ═══════════ Inspector ═══════════ -->
+    <aside class="inspector panel" aria-label="Inspector">
+      <div class="inspector__head">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tabs__btn is-on" role="tab" data-tab="details">Details</button>
+          <button type="button" class="tabs__btn" role="tab" data-tab="script">SuiteScript</button>
+          <button type="button" class="tabs__btn" role="tab" data-tab="json">JSON</button>
+        </div>
+        <button type="button" class="icon-btn icon-btn--sm only-mobile" id="inspector-close" aria-label="Close inspector">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+        </button>
+      </div>
+      <div class="inspector__body" id="inspector-body"></div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>Designed &amp; engineered by <a href="https://github.com/balakrishna-dev" target="_blank" rel="noopener">Balakrishna Undela</a></span>
+    <span class="sep"></span>
+    <span>Vanilla JS · SVG · zero dependencies</span>
+    <span class="sep"></span>
+    <span>NetSuite is a trademark of Oracle. Independent portfolio project.</span>
+  </footer>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="assets/js/workflows.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

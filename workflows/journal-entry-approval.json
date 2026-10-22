@@ -1,0 +1,224 @@
+{
+  "scriptid": "customworkflow_bu_journal_entry_approval",
+  "name": "Journal Entry Approval",
+  "category": "Record to Report",
+  "recordtype": "Journal Entry",
+  "version": "2.0",
+  "summary": "SOX-compliant segregation of duties for manual journals, with risk scoring, controller review and period-close guardrails.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Journal Saved",
+      "description": "Manual journal created by an accountant.",
+      "sla_hours": 0,
+      "trigger": "Before Submit · Create / Edit",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Approved → F"
+        }
+      ]
+    },
+    {
+      "id": "sod",
+      "type": "decision",
+      "name": "Segregation of Duties",
+      "description": "Blocks self-approval — a SOX control enforced at workflow level and by a User Event script.",
+      "sla_hours": 0.02,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "{createdby} <> {currentuser}"
+        }
+      ]
+    },
+    {
+      "id": "blocked",
+      "type": "reject",
+      "name": "SoD Violation",
+      "description": "Attempt is logged in a custom audit record and Internal Audit is notified.",
+      "sla_hours": 0,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Create Record",
+          "value": "customrecord_bu_sox_audit"
+        },
+        {
+          "type": "Send Email",
+          "value": "Internal Audit"
+        }
+      ]
+    },
+    {
+      "id": "risk",
+      "type": "script",
+      "name": "Risk Score",
+      "description": "Scores the journal using amount, sensitive GL accounts (cash, revenue, equity) and posting date proximity to close.",
+      "sla_hours": 0.05,
+      "trigger": "Custom Action",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "Return LOW / HIGH"
+        }
+      ]
+    },
+    {
+      "id": "level",
+      "type": "decision",
+      "name": "Risk Level",
+      "description": "Routes high-risk journals to the Controller.",
+      "sla_hours": 0.02,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Script Result",
+          "value": "LOW · HIGH"
+        }
+      ]
+    },
+    {
+      "id": "mgr",
+      "type": "state",
+      "name": "Accounting Manager",
+      "description": "Accounting Manager reviews support attachments and approves.",
+      "sla_hours": 4,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Add Button",
+          "value": "Reject"
+        }
+      ]
+    },
+    {
+      "id": "ctrl",
+      "type": "state",
+      "name": "Controller",
+      "description": "Controller review with mandatory supporting documentation.",
+      "sla_hours": 8,
+      "trigger": "Entry · Buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Field Mandatory",
+          "value": "Supporting file attached"
+        }
+      ]
+    },
+    {
+      "id": "period",
+      "type": "decision",
+      "name": "Period Open?",
+      "description": "Prevents posting into closed periods; reroutes to the next open period.",
+      "sla_hours": 0.02,
+      "trigger": "Condition",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "{postingperiod.closed} = F"
+        }
+      ]
+    },
+    {
+      "id": "reroute",
+      "type": "action",
+      "name": "Move to Open Period",
+      "description": "Moves the posting date to the first day of the next open period and annotates the memo.",
+      "sla_hours": 0.1,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Posting Period → next open"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "Memo += \"[Re-dated]\""
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "Posted to GL",
+      "description": "Journal posts to the General Ledger.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Approved → T"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "sod"
+    },
+    {
+      "from": "sod",
+      "to": "risk",
+      "label": "Pass",
+      "condition": "(s) => !s.sameUser"
+    },
+    {
+      "from": "sod",
+      "to": "blocked",
+      "label": "Violation",
+      "condition": "(s) => s.sameUser"
+    },
+    {
+      "from": "risk",
+      "to": "level"
+    },
+    {
+      "from": "level",
+      "to": "mgr",
+      "label": "Low",
+      "condition": "(s) => s.amount <= 100000"
+    },
+    {
+      "from": "level",
+      "to": "ctrl",
+      "label": "High",
+      "condition": "(s) => s.amount > 100000"
+    },
+    {
+      "from": "mgr",
+      "to": "period"
+    },
+    {
+      "from": "ctrl",
+      "to": "period"
+    },
+    {
+      "from": "period",
+      "to": "end",
+      "label": "Open",
+      "condition": "(s, c) => s.periodOpen || c.visits.reroute > 0"
+    },
+    {
+      "from": "period",
+      "to": "reroute",
+      "label": "Closed",
+      "condition": "(s) => !s.periodOpen"
+    },
+    {
+      "from": "reroute",
+      "to": "end"
+    }
+  ]
+}

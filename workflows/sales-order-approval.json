@@ -1,0 +1,300 @@
+{
+  "scriptid": "customworkflow_bu_sales_order_approval",
+  "name": "Sales Order Approval",
+  "category": "Order to Cash",
+  "recordtype": "Sales Order",
+  "version": "3.2",
+  "summary": "Tiered, amount-based approval routing with an automatic credit check, escalation to Director / CFO and release to fulfillment.",
+  "states": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Sales Order Created",
+      "description": "Workflow initiates when a sales rep saves a new Sales Order in the UI, through CSV import or via REST web services.",
+      "sla_hours": 0,
+      "trigger": "Before Record Submit · Event: Create",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Order Status → Pending Approval"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_wf_stage → \"Submitted\""
+        }
+      ]
+    },
+    {
+      "id": "validate",
+      "type": "action",
+      "name": "Validate Order",
+      "description": "Workflow Action Script validates margin, discount limits and mandatory fields before the order enters the approval queue.",
+      "sla_hours": 0.1,
+      "trigger": "Entry · After Record Submit",
+      "actions": [
+        {
+          "type": "Custom Action",
+          "value": "customscript_bu_wa_validate_order"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_margin_pct (calculated)"
+        }
+      ]
+    },
+    {
+      "id": "credit",
+      "type": "decision",
+      "name": "Credit Check",
+      "description": "Compares the customer open balance plus this order total against the credit limit defined on the customer record.",
+      "sla_hours": 0.05,
+      "trigger": "Condition · Formula (Numeric)",
+      "actions": [
+        {
+          "type": "Formula",
+          "value": "{entity.balance} + {total} <= {entity.creditlimit}"
+        }
+      ]
+    },
+    {
+      "id": "hold",
+      "type": "state",
+      "name": "Credit Hold",
+      "description": "Order is placed on hold and the Accounts Receivable team is notified to review the customer account.",
+      "sla_hours": 6,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Send Email",
+          "value": "AR Team · \"Credit hold: {tranid}\""
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_credit_hold → T"
+        },
+        {
+          "type": "Create Record",
+          "value": "Task · Review customer credit"
+        }
+      ]
+    },
+    {
+      "id": "tier",
+      "type": "decision",
+      "name": "Approval Tier",
+      "description": "Routes the order to the right approver based on configurable thresholds stored in a custom record (no hard-coding).",
+      "sla_hours": 0.05,
+      "trigger": "Condition · Saved Search Lookup",
+      "actions": [
+        {
+          "type": "Lookup",
+          "value": "customrecord_bu_approval_matrix"
+        },
+        {
+          "type": "Branch",
+          "value": "< $10K · $10K–$50K · > $50K"
+        }
+      ]
+    },
+    {
+      "id": "mgr",
+      "type": "state",
+      "name": "Sales Manager",
+      "description": "Sales Manager of the rep's subsidiary approves. Reminder sent every 4 hours via scheduled transition.",
+      "sla_hours": 2,
+      "trigger": "Entry · Approve / Reject buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Add Button",
+          "value": "Reject"
+        },
+        {
+          "type": "Send Email",
+          "value": "Supervisor of {salesrep}"
+        }
+      ]
+    },
+    {
+      "id": "dir",
+      "type": "state",
+      "name": "Sales Director",
+      "description": "Director approval with automatic escalation to the delegate approver after 24 hours of inactivity.",
+      "sla_hours": 4,
+      "trigger": "Entry · Approve / Reject buttons",
+      "actions": [
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Add Button",
+          "value": "Reject"
+        },
+        {
+          "type": "Scheduled Transition",
+          "value": "Escalate after 24h"
+        }
+      ]
+    },
+    {
+      "id": "cfo",
+      "type": "state",
+      "name": "CFO Approval",
+      "description": "High-value orders require CFO approval. Field-level locking prevents edits to pricing while pending.",
+      "sla_hours": 8,
+      "trigger": "Entry · Approve / Reject buttons",
+      "actions": [
+        {
+          "type": "Lock Record",
+          "value": "Item sublist & pricing"
+        },
+        {
+          "type": "Add Button",
+          "value": "Approve"
+        },
+        {
+          "type": "Add Button",
+          "value": "Reject"
+        }
+      ]
+    },
+    {
+      "id": "approved",
+      "type": "action",
+      "name": "Approved",
+      "description": "Stamps approver, timestamp and approval tier for the audit trail, then sets the order to Pending Fulfillment.",
+      "sla_hours": 0.1,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Order Status → Pending Fulfillment"
+        },
+        {
+          "type": "Set Field Value",
+          "value": "custbody_bu_approved_by → {currentuser}"
+        },
+        {
+          "type": "Send Email",
+          "value": "Sales rep · Approved"
+        }
+      ]
+    },
+    {
+      "id": "rejected",
+      "type": "reject",
+      "name": "Rejected",
+      "description": "Order is closed with a rejection reason captured in a mandatory field and the rep is notified.",
+      "sla_hours": 0.1,
+      "trigger": "Entry",
+      "actions": [
+        {
+          "type": "Set Field Value",
+          "value": "Order Status → Closed"
+        },
+        {
+          "type": "Send Email",
+          "value": "Sales rep · Rejected with reason"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "Released",
+      "description": "Workflow completes. The order is visible on the Fulfillment queue of the assigned location.",
+      "sla_hours": 0,
+      "trigger": "Exit",
+      "actions": [
+        {
+          "type": "Complete",
+          "value": "Workflow instance finished"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "validate"
+    },
+    {
+      "from": "validate",
+      "to": "credit"
+    },
+    {
+      "from": "credit",
+      "to": "tier",
+      "label": "Pass",
+      "condition": "(s) => s.creditOk"
+    },
+    {
+      "from": "credit",
+      "to": "hold",
+      "label": "Over limit",
+      "condition": "(s) => !s.creditOk"
+    },
+    {
+      "from": "hold",
+      "to": "tier",
+      "label": "AR released"
+    },
+    {
+      "from": "tier",
+      "to": "mgr",
+      "label": "< 10K",
+      "condition": "(s) => s.amount < 10000"
+    },
+    {
+      "from": "tier",
+      "to": "dir",
+      "label": "10K–50K",
+      "condition": "(s) => s.amount >= 10000 && s.amount <= 50000"
+    },
+    {
+      "from": "tier",
+      "to": "cfo",
+      "label": "> 50K",
+      "condition": "(s) => s.amount > 50000"
+    },
+    {
+      "from": "mgr",
+      "to": "approved",
+      "condition": "(s) => s.decision === 'approve'"
+    },
+    {
+      "from": "dir",
+      "to": "approved",
+      "condition": "(s) => s.decision === 'approve'"
+    },
+    {
+      "from": "cfo",
+      "to": "approved",
+      "condition": "(s) => s.decision === 'approve'"
+    },
+    {
+      "from": "mgr",
+      "to": "rejected",
+      "condition": "(s) => s.decision === 'reject'"
+    },
+    {
+      "from": "dir",
+      "to": "rejected",
+      "label": "Reject",
+      "condition": "(s) => s.decision === 'reject'"
+    },
+    {
+      "from": "cfo",
+      "to": "rejected",
+      "condition": "(s) => s.decision === 'reject'"
+    },
+    {
+      "from": "approved",
+      "to": "end"
+    }
+  ]
+}
